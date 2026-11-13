@@ -154,13 +154,30 @@ button.small { font-size: 15px; padding: 6px 12px; flex: 0; }
 #touch .swapbtn { left: 50%; transform: translateX(-50%); bottom: 4cqh; }
 
 /* 감정 표현 */
-#emoBar {
-  position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%);
-  display: flex; gap: 6px; z-index: 25; background: rgba(8,10,16,0.85);
-  border: 1px solid #3a4157; padding: 6px;
+#emoWheel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 62cqh; height: 62cqh; z-index: 26; touch-action: none; cursor: pointer;
 }
-#emoBar button { display: flex; flex-direction: column; align-items: center; padding: 4px 6px; font-size: 13px; gap: 2px; }
-#emoBar canvas { width: 56px; height: 44px; display: block; }
+
+#keyHelp {
+  position: absolute; right: 1.2cqh; top: 11cqh; z-index: 12;
+  background: rgba(6,8,14,0.6); border: 1px solid rgba(255,255,255,0.12);
+  padding: 1cqh 1.4cqh; font-size: 2.3cqh; color: #cfd4e2; cursor: pointer;
+  pointer-events: auto;
+}
+#keyHelp .kh-title { font-family: 'Do Hyeon', sans-serif; font-size: 2.6cqh; margin-bottom: 0.6cqh; color: #e9ecf3; }
+#keyHelp .kh-title em { font-style: normal; font-family: 'Noto Sans KR', sans-serif; font-size: 1.9cqh; color: #6b7286; margin-left: 1cqh; }
+#keyHelp ul { list-style: none; }
+#keyHelp li { display: flex; align-items: center; gap: 1cqh; line-height: 1.75; }
+#keyHelp kbd {
+  font-family: 'Noto Sans KR', sans-serif; font-size: 1.9cqh; min-width: 6.6cqh; text-align: center;
+  border: 1px solid rgba(255,255,255,0.3); padding: 0 0.6cqh; background: rgba(255,255,255,0.06);
+}
+#keyHelp.mini ul { display: none; }
+#keyHelp.mini .kh-title { margin: 0; }
+#keyHelp.mini .kh-title em::before { content: '펼치기 '; }
+#keyHelp.mini .kh-title em { font-size: 0; }
+#keyHelp.mini .kh-title em::before { font-size: 1.9cqh; content: 'H 펼치기'; }
 #touch .emobtn { position: absolute; width: 14cqh; height: 7.5cqh; font-size: 3.4cqh; right: 3cqh; top: 30cqh; }
 
 /* 대기실/선택 화면에서 채팅이 열려 있으면 패널을 오른쪽으로 비켜 둔다 */

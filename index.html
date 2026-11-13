@@ -32,7 +32,7 @@
         <button id="btnBots">봇 시연</button>
       </div>
       <p id="titleMsg" class="msgline"></p>
-      <p class="hint">이동 ← → / A D · 점프 Space / W · 간섭 E · 핑 Q · 감정 표현 G · 채팅 Enter · 내 캐릭터 리셋 K</p>
+      <p class="hint">이동 ← → / A D · 점프 Space / W · 간섭 E · 핑 Q · 감정 표현 G(누른 채 마우스) · 채팅 Enter · 내 캐릭터 리셋 K</p>
     </div>
   </section>
 
@@ -85,7 +85,24 @@
   </div>
 
   <!-- 감정 표현 -->
-  <div id="emoBar" class="hidden"></div>
+  <canvas id="emoWheel" class="hidden" width="480" height="480"></canvas>
+
+  <!-- 간단 키 설명 (H로 접기) -->
+  <div id="keyHelp" class="hidden">
+    <div class="kh-title">조작법 <em>H 접기</em></div>
+    <ul>
+      <li><kbd>← →</kbd><span>이동</span></li>
+      <li><kbd>Space</kbd><span>점프 · 물에서 헤엄</span></li>
+      <li><kbd>E</kbd><span>간섭 (6초)</span></li>
+      <li><kbd>Q</kbd><span>위치 핑</span></li>
+      <li><kbd>G</kbd><span>감정 표현 (누른 채 마우스)</span></li>
+      <li id="helpChat"><kbd>Enter</kbd><span>채팅</span></li>
+      <li id="helpTab"><kbd>Tab</kbd><span>캐릭터 전환</span></li>
+      <li><kbd>K</kbd><span>내 캐릭터 리셋</span></li>
+      <li><kbd>R</kbd><span>스테이지 재시작</span></li>
+      <li><kbd>Esc</kbd><span>메뉴</span></li>
+    </ul>
+  </div>
 
   <!-- 터치 조작 -->
   <div id="touch" class="hidden">

@@ -5,7 +5,7 @@ import { Sim } from './sim.js';
 import { BotDriver, PLANS } from './bot.js';
 import { Net } from './net.js';
 import { Chat } from './chat.js';
-import { initInput, readMove, took, clearPressed, releaseAll } from './input.js';
+import { initInput, readMove, took, clearPressed, releaseAll, isHeld } from './input.js';
 import { drawWorld, drawPreview, particles, burst, stepParticles, EMOTES, drawEmoteIcon } from './render.js';
 import { unlockAudio, sfx, setMuted, isMuted } from './audio.js';
 
@@ -25,6 +25,7 @@ const S = {
   pings: [], paused: false, over: null, intro: 0,
   sendAcc: 0, chatSeq: 0, t: 0, failTimer: null,
   stats: { chatShown: 0 },
+  help: true,
 };
 window.__twin = S;
 
@@ -34,6 +35,14 @@ const store = {
   set(k, v) { try { localStorage.setItem('twinrift-' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const best = store.get('best', {});
+S.help = store.get('help', true);
+function updateHelp() {
+  const show = S.mode === 'play' && S.kind !== 'bots' && !document.body.classList.contains('touch');
+  $('keyHelp').classList.toggle('hidden', !show);
+  $('keyHelp').classList.toggle('mini', !S.help);
+  $('helpChat').classList.toggle('hidden', S.kind !== 'online');
+  $('helpTab').classList.toggle('hidden', S.kind !== 'solo');
+}
 
 // ---------- 캔버스 ----------
 function fitCanvas() {
@@ -68,6 +77,7 @@ function setMode(m) {
   else if (m !== 'over') show(m);
   releaseAll(); clearPressed();
   toggleEmoBar(false);
+  updateHelp();
 }
 
 let toastTimer = null;
@@ -492,29 +502,106 @@ function backToMenu() {
   } else leaveToTitle();
 }
 
-// ---------- 감정 표현 (G) ----------
-const emoBar = $('emoBar');
-let emoTimer = null, lastEmo = 0;
-EMOTES.forEach((e, i) => {
-  const b = document.createElement('button');
-  b.innerHTML = `<canvas width="56" height="44"></canvas><span>${i + 1} ${e.name}</span>`;
-  b.onclick = () => { doEmote(i); };
-  emoBar.appendChild(b);
-  const c = b.querySelector('canvas').getContext('2d');
-  c.scale(1.6, 1.6);
-  const draw = () => { c.clearRect(0, 0, 40, 30); drawEmoteIcon(c, e.k, 17.5, 15, 0); };
-  draw();
-  document.fonts && document.fonts.ready.then(draw);
-});
+// ---------- 감정 표현 휠 (G) ----------
+// G를 누른 채 마우스를 원하는 방향으로 움직이고 G를 떼면 선택.
+// G를 짧게 톡 누르면 휠이 열린 채로 남고, 클릭으로 고른다.
+const wheel = $('emoWheel');
+const wctx = wheel.getContext('2d');
+const W_R1 = 72, W_R2 = 205;          // 안쪽, 바깥쪽 반지름 (캔버스 좌표)
+const EW = { open: false, hold: false, t0: 0, dx: 0, dy: 0, sel: -1 };
+let lastEmo = 0;
+
 function myIdx() { return S.kind === 'online' ? S.myCh : S.active; }
-function toggleEmoBar(open) {
-  const on = open === undefined ? emoBar.classList.contains('hidden') : open;
-  emoBar.classList.toggle('hidden', !on);
-  clearTimeout(emoTimer);
-  if (on) emoTimer = setTimeout(() => emoBar.classList.add('hidden'), 5000);
+
+function sectorOf(dx, dy) {
+  if (Math.hypot(dx, dy) < 26) return -1;
+  const n = EMOTES.length, step = Math.PI * 2 / n;
+  const a = (Math.atan2(dy, dx) + Math.PI / 2 + step / 2 + Math.PI * 4) % (Math.PI * 2);
+  return Math.floor(a / step) % n;
 }
+function openWheel(hold) {
+  if (!S.sim || S.mode !== 'play' || S.kind === 'bots' || S.over) return;
+  EW.open = true; EW.hold = hold; EW.t0 = performance.now(); EW.dx = 0; EW.dy = 0; EW.sel = -1;
+  wheel.classList.remove('hidden');
+}
+function closeWheel() { EW.open = false; wheel.classList.add('hidden'); }
+function toggleEmoBar(open) { if (open === false) closeWheel(); else if (EW.open) closeWheel(); else openWheel(false); }
+
+window.addEventListener('mousemove', e => {
+  if (!EW.open || e.target === wheel) return;
+  EW.dx += e.movementX; EW.dy += e.movementY;
+  const l = Math.hypot(EW.dx, EW.dy);
+  if (l > 120) { EW.dx *= 120 / l; EW.dy *= 120 / l; }
+  EW.sel = sectorOf(EW.dx, EW.dy);
+});
+function wheelLocal(e) {
+  const r = wheel.getBoundingClientRect();
+  return [(e.clientX - r.left - r.width / 2) * (wheel.width / r.width), (e.clientY - r.top - r.height / 2) * (wheel.height / r.height)];
+}
+wheel.addEventListener('pointermove', e => {
+  const [x, y] = wheelLocal(e);
+  EW.dx = x; EW.dy = y;
+  EW.sel = Math.hypot(x, y) > W_R2 + 30 ? -1 : sectorOf(x, y);
+});
+wheel.addEventListener('pointerdown', e => { e.preventDefault(); const [x, y] = wheelLocal(e); EW.sel = sectorOf(x, y); });
+wheel.addEventListener('pointerup', e => {
+  e.preventDefault();
+  const [x, y] = wheelLocal(e);
+  const sel = Math.hypot(x, y) > W_R2 + 30 ? -1 : sectorOf(x, y);
+  if (sel >= 0) doEmote(sel); else closeWheel();
+});
+
+function wheelUpdate() {
+  if (!EW.open) return;
+  if (EW.hold && !isHeld('KeyG')) {
+    // G를 뗐을 때: 방향을 골랐으면 실행, 짧게 톡 눌렀으면 클릭 모드로 유지
+    if (EW.sel >= 0) doEmote(EW.sel);
+    else if (performance.now() - EW.t0 < 300) EW.hold = false;
+    else closeWheel();
+  }
+  drawWheel();
+}
+
+function drawWheel() {
+  const c = wctx, cx = wheel.width / 2, cy = wheel.height / 2, n = EMOTES.length, step = Math.PI * 2 / n;
+  const col = CHARS[myIdx()].color;
+  c.clearRect(0, 0, wheel.width, wheel.height);
+  for (let i = 0; i < n; i++) {
+    const a0 = -Math.PI / 2 - step / 2 + i * step + 0.02, a1 = a0 + step - 0.04;
+    const on = i === EW.sel;
+    c.beginPath(); c.arc(cx, cy, on ? W_R2 + 8 : W_R2, a0, a1); c.arc(cx, cy, W_R1, a1, a0, true); c.closePath();
+    c.fillStyle = on ? col + 'e6' : 'rgba(10,12,20,0.78)';
+    c.fill();
+    c.strokeStyle = on ? '#ffffff' : 'rgba(255,255,255,0.18)'; c.lineWidth = on ? 3 : 1.5; c.stroke();
+    const am = a0 + step / 2 - 0.02, r = (W_R1 + W_R2) / 2 + (on ? 4 : 0);
+    const ix = cx + Math.cos(am) * r, iy = cy + Math.sin(am) * r;
+    c.save(); c.translate(ix, iy - 8); c.scale(on ? 2.3 : 2, on ? 2.3 : 2);
+    // 아이콘 바탕 원
+    c.fillStyle = 'rgba(255,255,255,0.92)'; c.beginPath(); c.arc(0, 0, 15, 0, Math.PI * 2); c.fill();
+    drawEmoteIcon(c, EMOTES[i].k, 0, 0, S.t);
+    c.restore();
+    c.font = `${on ? 22 : 19}px 'Do Hyeon', 'Noto Sans KR', sans-serif`; c.textAlign = 'center';
+    c.fillStyle = on ? '#0b0d14' : '#e9ecf3';
+    c.fillText(EMOTES[i].name, ix, iy + 52);
+  }
+  // 가운데
+  c.beginPath(); c.arc(cx, cy, W_R1 - 8, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(10,12,20,0.85)'; c.fill();
+  c.strokeStyle = 'rgba(255,255,255,0.25)'; c.lineWidth = 1.5; c.stroke();
+  c.font = `20px 'Do Hyeon', 'Noto Sans KR', sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillStyle = EW.sel >= 0 ? '#ffffff' : '#8b92a6';
+  c.fillText(EW.sel >= 0 ? EMOTES[EW.sel].name : (EW.hold ? '방향 선택' : '취소'), cx, cy);
+  c.textBaseline = 'alphabetic';
+  // 고른 방향 표시
+  if (EW.sel >= 0) {
+    const a = Math.atan2(EW.dy, EW.dx);
+    c.fillStyle = col;
+    c.beginPath(); c.arc(cx + Math.cos(a) * (W_R1 - 18), cy + Math.sin(a) * (W_R1 - 18), 6, 0, Math.PI * 2); c.fill();
+  }
+}
+
 function doEmote(i) {
-  toggleEmoBar(false);
+  closeWheel();
   if (!S.sim || S.mode !== 'play' || S.kind === 'bots') return;
   if (S.t - lastEmo < 0.6) return;
   lastEmo = S.t;
@@ -588,7 +675,8 @@ function playUpdate(dt) {
   const sim = S.sim;
   const typing = chat.typing;
   if (!typing) {
-    if (took('Escape')) { if (S.over === 'pause') closeOver(); else if (!S.over) { S.paused = S.kind !== 'online'; openOver('일시정지', S.kind === 'online' ? '온라인에서는 게임이 멈추지 않습니다' : '', 'pause'); } }
+    if (EW.open && took('Escape')) closeWheel();
+    else if (took('Escape')) { if (S.over === 'pause') closeOver(); else if (!S.over) { S.paused = S.kind !== 'online'; openOver('일시정지', S.kind === 'online' ? '온라인에서는 게임이 멈추지 않습니다' : '', 'pause'); } }
     if (took('KeyR') && S.over !== 'clear') hostRestart(S.stage);
     if (took('KeyM')) { setMuted(!isMuted()); toast(isMuted() ? '소리 끔' : '소리 켬', 1000); }
     if (S.kind === 'online' && took('Enter')) chat.open();
@@ -597,10 +685,8 @@ function playUpdate(dt) {
       const p = sim.players[w];
       if (!p.dead) addPing(p.x, p.y - 26, w, S.kind === 'online');
     }
-    if (took('KeyG') && !S.over && S.kind !== 'bots') toggleEmoBar();
-    if (!emoBar.classList.contains('hidden')) {
-      for (let i = 0; i < EMOTES.length; i++) if (took('Digit' + (i + 1)) || took('Numpad' + (i + 1))) doEmote(i);
-    }
+    if (took('KeyG')) { if (EW.open && !EW.hold) closeWheel(); else if (!EW.open) openWheel(true); }
+    if (took('KeyH')) { S.help = !S.help; store.set('help', S.help); updateHelp(); }
     if (S.kind === 'solo' && took('Tab')) {
       S.active = 1 - S.active; releaseAll(); toast(`${CHARS[S.active].name} 조작 중`, 900);
     }
@@ -741,9 +827,9 @@ function drawHud(sim, w, r, split) {
   if (touch) return;
   if (S.kind === 'solo') {
     ctx.textAlign = 'left'; ctx.font = `14px ${FONT}`;
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(8, r.h - 34, 480, 26);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(8, r.h - 34, 250, 26);
     ctx.fillStyle = '#cfd4e2';
-    ctx.fillText(`조작: ${CHARS[S.active].name}  ·  Tab 전환  ·  G 감정 표현  ·  K 리셋  ·  R 재시작  ·  Esc 메뉴`, 16, r.h - 16);
+    ctx.fillText(`지금 조작 중: ${CHARS[S.active].name}  ·  Tab으로 전환`, 16, r.h - 16);
   } else if (S.kind === 'bots') {
     ctx.textAlign = 'left'; ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(8, r.h - 34, 260, 26);
@@ -774,6 +860,7 @@ function frame(now) {
   chat.tick();
   try {
     if (S.mode === 'play' && S.sim) playUpdate(dt);
+    wheelUpdate();
     if (S.mode === 'pick') {
       document.querySelectorAll('.card').forEach(c => {
         const ch = +c.dataset.ch;
@@ -793,6 +880,7 @@ function frame(now) {
 if (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window) document.body.classList.add('touch');
 $('btnChatTouch').onclick = () => chat.open();
 $('btnEmoTouch').onclick = () => toggleEmoBar();
+$('keyHelp').onclick = () => { S.help = !S.help; store.set('help', S.help); updateHelp(); };
 $('btnMenuTouch').onclick = () => {
   if (S.mode !== 'play') return;
   if (S.over === 'pause') closeOver();

@@ -200,14 +200,14 @@ export function drawEmoteIcon(ctx, k, x, y, t = 0) {
     ctx.beginPath(); ctx.ellipse(-5, -3, 2.2, 1.4, -0.6, 0, Math.PI * 2); ctx.fill();
   } else if (k === 'lol' || k === 'what' || k === 'sorry') {
     const txt = k === 'lol' ? 'ㅋㅋㅋ' : k === 'what' ? '?' : '미안';
-    ctx.font = `${k === 'what' ? 24 : 15}px 'Do Hyeon', 'Noto Sans KR', sans-serif`;
+    ctx.font = `${k === 'what' ? 24 : 13}px 'Do Hyeon', 'Noto Sans KR', sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = k === 'lol' ? '#e0457b' : k === 'what' ? '#3a6df0' : '#5a6478';
     const wob = k === 'lol' ? Math.sin(t * 18) * 1.2 : 0;
     ctx.fillText(txt, 0, 1 + wob);
     if (k === 'sorry') {   // 땀방울
       ctx.fillStyle = '#7cc8ff';
-      ctx.beginPath(); ctx.moveTo(13, -9); ctx.quadraticCurveTo(17, -3, 13, -1); ctx.quadraticCurveTo(9, -3, 13, -9); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(11, -11); ctx.quadraticCurveTo(14.5, -5.5, 11, -4); ctx.quadraticCurveTo(7.5, -5.5, 11, -11); ctx.fill();
     }
   } else if (k === 'dance') {
     ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#1a1d28'; ctx.lineWidth = 1.4;

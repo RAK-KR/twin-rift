@@ -1,7 +1,7 @@
 // 키보드 + 터치 입력
 const held = new Set();
 const pressedOnce = new Set();
-const touch = { left: false, right: false, jump: false, proj: false };
+const touch = { left: false, right: false, jump: false, proj: false, kill: false };
 
 const typing = () => {
   const a = document.activeElement;
@@ -32,12 +32,13 @@ export function initInput() {
 }
 
 export function readMove() {
-  if (typing()) return { left: false, right: false, jump: false, proj: false };
+  if (typing()) return { left: false, right: false, jump: false, proj: false, kill: false };
   return {
     left: held.has('ArrowLeft') || held.has('KeyA') || touch.left,
     right: held.has('ArrowRight') || held.has('KeyD') || touch.right,
     jump: held.has('Space') || held.has('ArrowUp') || held.has('KeyW') || touch.jump,
     proj: held.has('KeyE') || held.has('ShiftLeft') || held.has('ShiftRight') || touch.proj,
+    kill: held.has('KeyK') || touch.kill,
   };
 }
 
@@ -48,3 +49,5 @@ export function took(code) {
 }
 export function clearPressed() { pressedOnce.clear(); }
 export function releaseAll() { held.clear(); for (const k in touch) touch[k] = false; }
+
+export function isHeld(code) { return held.has(code); }
