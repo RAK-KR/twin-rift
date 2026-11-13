@@ -1,0 +1,161 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; background: #06070b; overflow: hidden; }
+body {
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  color: #e9ecf3;
+  -webkit-user-select: none; user-select: none;
+  touch-action: none;
+}
+#app {
+  position: absolute; left: 50%; top: 50%;
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  background: #06070b;
+}
+#game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.screen {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(5, 6, 10, 0.72);
+}
+.hidden { display: none !important; }
+
+.panel {
+  background: #0d0f16;
+  border: 1px solid #2b2f3d;
+  padding: 28px 32px;
+  min-width: 380px;
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.4);
+}
+h1 {
+  font-family: 'Do Hyeon', sans-serif; font-weight: 400;
+  font-size: 64px; letter-spacing: 6px; line-height: 1;
+  background: linear-gradient(90deg, #4db8ff 0 50%, #ffa44a 50% 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+h2 { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 34px; margin-bottom: 14px; }
+.tag { color: #8b92a6; margin: 6px 0 20px; font-size: 14px; }
+.hint { color: #6b7286; font-size: 12px; margin-top: 16px; }
+.msgline { min-height: 20px; margin-top: 12px; color: #ffcf6a; font-size: 14px; }
+
+.field { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.field span { color: #8b92a6; font-size: 13px; width: 52px; }
+input {
+  font: inherit; color: #fff; background: #151826;
+  border: 1px solid #343a4e; padding: 10px 12px; outline: none;
+  border-radius: 0;
+}
+input:focus { border-color: #8fa4ff; }
+.field input { flex: 1; }
+
+.row { display: flex; gap: 10px; margin-top: 10px; }
+.row > * { flex: 1; }
+.row.join input { text-transform: uppercase; letter-spacing: 4px; text-align: center; }
+
+button {
+  font-family: 'Do Hyeon', sans-serif; font-size: 20px; color: #e9ecf3;
+  background: #1a1e2c; border: 1px solid #3a4157;
+  padding: 10px 16px; cursor: pointer; border-radius: 0;
+  transition: background 0.1s, border-color 0.1s;
+}
+button:hover:not(:disabled) { background: #252b3f; border-color: #6c78a0; }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: #e9ecf3; color: #0b0d14; border-color: #e9ecf3; }
+button.primary:hover:not(:disabled) { background: #fff; }
+button.small { font-size: 15px; padding: 6px 12px; flex: 0; }
+.row.sub button { font-size: 17px; }
+
+/* 대기실 */
+.code-box { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.code-box span { color: #8b92a6; }
+.code-box strong { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 46px; letter-spacing: 10px; }
+.players { display: flex; gap: 10px; }
+.pslot { flex: 1; border: 1px solid #2b2f3d; padding: 12px; background: #11141e; }
+.pslot em { display: block; font-style: normal; color: #6b7286; font-size: 12px; margin-bottom: 4px; }
+.pslot b { font-size: 18px; }
+.pslot.on { border-color: #8fa4ff; }
+.stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 14px; }
+.stages button { font-size: 15px; padding: 8px 4px; }
+.stages button.sel { background: #e9ecf3; color: #0b0d14; }
+.stages .best { display: block; font-family: 'Noto Sans KR', sans-serif; font-size: 11px; opacity: 0.7; }
+
+/* 캐릭터 선택 */
+.cards { display: flex; gap: 16px; }
+.card {
+  display: flex; flex-direction: column; align-items: stretch; text-align: left;
+  padding: 0; width: 280px; position: relative; font-family: 'Noto Sans KR', sans-serif;
+}
+.card canvas { width: 280px; height: 200px; display: block; }
+.card b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 28px; padding: 10px 14px 0; }
+.card span { font-size: 13px; color: #9aa1b5; padding: 4px 14px 14px; }
+.card[data-ch="0"].mine { border-color: #4db8ff; box-shadow: 0 0 0 2px #4db8ff; }
+.card[data-ch="1"].mine { border-color: #ffa44a; box-shadow: 0 0 0 2px #ffa44a; }
+.card.taken { opacity: 0.55; }
+.card .owner {
+  position: absolute; top: 10px; right: 10px; font-style: normal;
+  font-family: 'Noto Sans KR', sans-serif; font-size: 13px;
+  background: rgba(0,0,0,0.7); padding: 3px 8px;
+}
+.card .owner:empty { display: none; }
+
+/* 결과 */
+.over-panel { text-align: center; min-width: 420px; }
+.over-panel p { color: #b9bfd0; white-space: pre-line; line-height: 1.6; }
+
+/* 채팅 */
+#chatWrap {
+  position: absolute; left: 12px; bottom: 12px; width: 34%;
+  display: flex; flex-direction: column; gap: 6px; z-index: 20;
+  pointer-events: none;
+}
+#chatLog {
+  max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+  scrollbar-width: none;
+}
+#chatLog::-webkit-scrollbar { display: none; }
+#chatLog .msg {
+  background: rgba(6,8,14,0.72); padding: 4px 8px; font-size: 14px; line-height: 1.4;
+  word-break: break-all; transition: opacity 0.6s; align-self: flex-start;
+}
+#chatLog .msg b { margin-right: 6px; }
+#chatLog .msg.sys { color: #9aa1b5; font-size: 12px; }
+#chatLog .msg.old { opacity: 0; }
+#chatInput { pointer-events: auto; font-size: 14px; padding: 8px 10px; background: rgba(12,14,22,0.92); }
+#chatWrap.ingame { top: 46px; bottom: auto; width: 30%; }
+#chatWrap.ingame #chatLog { max-height: 150px; }
+#chatWrap.ingame #chatLog .msg { background: rgba(6,8,14,0.55); font-size: 13px; }
+#chatWrap.ingame #chatInput { opacity: 0; }
+#chatWrap.ingame.typing #chatInput { opacity: 1; }
+#chatWrap.ingame.typing #chatLog { pointer-events: auto; }
+#chatWrap.lobby { width: 30%; }
+#chatWrap.lobby #chatLog { max-height: 260px; }
+
+/* 터치 */
+#touch { position: absolute; inset: 0; pointer-events: none; z-index: 15; }
+#touch button {
+  pointer-events: auto; position: relative; width: 74px; height: 74px; font-size: 22px;
+  background: rgba(20,24,36,0.55); border: 1px solid rgba(255,255,255,0.25);
+}
+#touch button.on { background: rgba(255,255,255,0.3); }
+#touch .tl { position: absolute; left: 18px; bottom: 18px; display: flex; gap: 12px; }
+#touch .tr { position: absolute; right: 18px; bottom: 18px; display: flex; gap: 12px; align-items: flex-end; }
+#touch button.sm { width: 56px; height: 56px; font-size: 17px; }
+#touch .chatbtn { position: absolute; right: 18px; top: 52px; width: 64px; height: 40px; font-size: 16px; }
+body.touch #chatWrap.lobby { bottom: 110px; }
+
+#toast {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%);
+  background: rgba(10,12,20,0.9); border: 1px solid #3a4157; padding: 8px 16px;
+  font-size: 14px; opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 30;
+}
+#toast.show { opacity: 1; }
+
+@media (max-width: 760px), (max-height: 460px) {
+  .panel { padding: 16px 18px; min-width: 0; transform: scale(0.82); }
+  h1 { font-size: 44px; }
+  .card, .card canvas { width: 200px; }
+  .card canvas { height: 142px; }
+}

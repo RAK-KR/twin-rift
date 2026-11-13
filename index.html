@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>TWIN RIFT</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game" width="960" height="540"></canvas>
+
+  <!-- 타이틀 -->
+  <section id="scr-title" class="screen">
+    <div class="panel title-panel">
+      <h1>TWIN RIFT</h1>
+      <p class="tag">두 개의 세계, 한 쌍의 간섭</p>
+      <label class="field"><span>닉네임</span><input id="inName" maxlength="10" autocomplete="off" spellcheck="false"></label>
+      <div class="row">
+        <button id="btnHost" class="primary">방 만들기</button>
+      </div>
+      <div class="row join">
+        <input id="inCode" maxlength="4" placeholder="방 코드" autocomplete="off" spellcheck="false">
+        <button id="btnJoin">참가</button>
+      </div>
+      <div class="row sub">
+        <button id="btnSolo">혼자 연습</button>
+        <button id="btnBots">봇 시연</button>
+      </div>
+      <p id="titleMsg" class="msgline"></p>
+      <p class="hint">이동 ← → / A D · 점프 Space / W · 간섭 E · 핑 Q · 채팅 Enter</p>
+    </div>
+  </section>
+
+  <!-- 대기실 -->
+  <section id="scr-lobby" class="screen hidden">
+    <div class="panel lobby-panel">
+      <div class="code-box">
+        <span>방 코드</span>
+        <strong id="roomCode">----</strong>
+        <button id="btnCopy" class="small">복사</button>
+      </div>
+      <div class="players">
+        <div class="pslot" id="slotHost"><em>방장</em><b>-</b></div>
+        <div class="pslot" id="slotGuest"><em>참가자</em><b>기다리는 중</b></div>
+      </div>
+      <div class="stages" id="stageBtns"></div>
+      <div class="row">
+        <button id="btnStart" class="primary" disabled>게임 시작</button>
+        <button id="btnLeave">나가기</button>
+      </div>
+      <p id="lobbyMsg" class="msgline"></p>
+    </div>
+  </section>
+
+  <!-- 캐릭터 선택 -->
+  <section id="scr-pick" class="screen hidden">
+    <div class="panel pick-panel">
+      <h2>캐릭터 선택</h2>
+      <div class="cards">
+        <button class="card" data-ch="0"><canvas width="280" height="200"></canvas><b>AQUA</b><span>물에 잠긴 도시 · 헤엄쳐서 올라갑니다</span><i class="owner"></i></button>
+        <button class="card" data-ch="1"><canvas width="280" height="200"></canvas><b>DUNE</b><span>모래에 묻힌 도시 · 바람을 타고 오릅니다</span><i class="owner"></i></button>
+      </div>
+      <p id="pickMsg" class="msgline">같은 캐릭터는 고를 수 없습니다</p>
+    </div>
+  </section>
+
+  <!-- 결과/메뉴 -->
+  <section id="scr-over" class="screen hidden">
+    <div class="panel over-panel">
+      <h2 id="overTitle">클리어</h2>
+      <p id="overText"></p>
+      <div class="row" id="overBtns"></div>
+    </div>
+  </section>
+
+  <!-- 채팅 -->
+  <div id="chatWrap" class="hidden">
+    <div id="chatLog"></div>
+    <input id="chatInput" maxlength="120" placeholder="메시지 입력 후 Enter" autocomplete="off" spellcheck="false">
+  </div>
+
+  <!-- 터치 조작 -->
+  <div id="touch" class="hidden">
+    <div class="tl">
+      <button data-touch="left">◀</button>
+      <button data-touch="right">▶</button>
+    </div>
+    <div class="tr">
+      <button data-touch="ping" class="sm">핑</button>
+      <button data-touch="proj">간섭</button>
+      <button data-touch="jump">점프</button>
+    </div>
+    <button id="btnChatTouch" class="chatbtn">채팅</button>
+  </div>
+
+  <div id="toast"></div>
+</div>
+<script src="lib/peerjs.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
