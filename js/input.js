@@ -22,7 +22,7 @@ export function initInput() {
 
   document.querySelectorAll('[data-touch]').forEach(el => {
     const k = el.dataset.touch;
-    const on = e => { e.preventDefault(); touch[k] = true; el.classList.add('on'); if (k === 'ping') pressedOnce.add('KeyQ'); };
+    const on = e => { e.preventDefault(); touch[k] = true; el.classList.add('on'); if (k === 'ping') pressedOnce.add('KeyQ'); if (k === 'swap') pressedOnce.add('Tab'); };
     const off = e => { e.preventDefault(); touch[k] = false; el.classList.remove('on'); };
     el.addEventListener('pointerdown', on);
     el.addEventListener('pointerup', off);

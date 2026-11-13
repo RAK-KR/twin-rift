@@ -59,8 +59,10 @@ function setMode(m) {
   wrap.classList.toggle('ingame', m === 'play');
   wrap.classList.toggle('lobby', m !== 'play');
   chat.inGame = m === 'play';
+  document.body.classList.toggle('chatdock', online && (m === 'lobby' || m === 'pick'));
   $('touch').classList.toggle('hidden', !(m === 'play' && document.body.classList.contains('touch')));
   $('btnChatTouch').classList.toggle('hidden', !online);
+  $('btnSwapTouch').classList.toggle('hidden', S.kind !== 'solo');
   if (m === 'play') { show(null); document.activeElement && document.activeElement.blur && document.activeElement.blur(); }
   else if (m !== 'over') show(m);
   releaseAll(); clearPressed();
@@ -559,6 +561,11 @@ function playUpdate(dt) {
     }
   }
   if (S.paused) return;
+  {
+    const w = S.kind === 'online' ? S.myCh : S.active;
+    const pb = document.querySelector('[data-touch="proj"]');
+    if (pb) pb.classList.toggle('active', !!sim.players[w].proj);
+  }
   const inputs = gatherInputs(dt);
   sim.step(dt, inputs);
   handleEvents();
@@ -613,12 +620,15 @@ function render(dt) {
 
 function drawHud(sim, w, r, split) {
   const st = sim.stage;
-  ctx.textAlign = 'center';
-  ctx.font = `24px ${FONT}`;
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(r.w / 2 - 70, split ? r.h / 2 - 16 : 8, 140, 32);
-  ctx.fillStyle = '#fff';
-  ctx.fillText(fmt(sim.time), r.w / 2, split ? r.h / 2 + 8 : 32);
+  // 기록 시간: 오른쪽 위에 작고 흐리게
+  ctx.textAlign = 'right';
+  ctx.font = `17px ${FONT}`;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  const tStr = fmt(sim.time);
+  const tW = ctx.measureText(tStr).width + 16;
+  ctx.fillRect(r.w - 8 - tW, 8, tW, 24);
+  ctx.fillStyle = 'rgba(233,236,243,0.7)';
+  ctx.fillText(tStr, r.w - 16, 26);
 
   if (!split) {
     ctx.textAlign = 'left'; ctx.font = `18px ${FONT}`;
@@ -626,21 +636,24 @@ function drawHud(sim, w, r, split) {
     ctx.fillStyle = '#e9ecf3'; ctx.fillText(st.name, 18, 29);
     ctx.textAlign = 'right';
     const rtt = S.net ? Math.round(S.net.rtt) : 0;
-    ctx.font = `14px ${FONT}`;
-    ctx.fillStyle = rtt > 180 ? '#ff8a6a' : '#8b92a6';
-    ctx.fillText(`핑 ${rtt}ms`, r.w - 14, 26);
+    ctx.font = `13px ${FONT}`;
+    ctx.fillStyle = rtt > 180 ? '#ff8a6a' : 'rgba(139,146,166,0.8)';
+    ctx.fillText(`지연 ${rtt}ms`, r.w - 16, 48);
   }
 
-  // 간섭 상태
+  // 간섭 상태 (터치 화면에서는 버튼과 겹치지 않게 위로)
+  const touch = document.body.classList.contains('touch');
   const me = sim.players[w];
   const label = me.proj ? '간섭 ON' : '간섭 OFF';
   ctx.font = `18px ${FONT}`; ctx.textAlign = 'right';
-  const bx = r.w - 12, by = r.h - 14;
+  const bx = r.w - 12, by = touch ? (split ? r.h / 2 + 30 : 66) : r.h - 14;
   ctx.fillStyle = me.proj ? CHARS[w].color : 'rgba(0,0,0,0.6)';
-  const tw = ctx.measureText(label + '  [E]').width + 20;
-  ctx.fillRect(bx - tw, by - 22, tw, 30);
+  const text = touch ? label : label + '  [E]';
+  const tw = ctx.measureText(text).width + 20;
+  const lx = touch && !split ? 8 + tw : bx;   // 터치 온라인 화면: 왼쪽 위 스테이지 이름 아래
+  ctx.fillRect(lx - tw, by - 22, tw, 30);
   ctx.fillStyle = me.proj ? '#0b0d14' : '#cfd4e2';
-  ctx.fillText(label + '  [E]', bx - 10, by);
+  ctx.fillText(text, lx - 10, by);
 
   // 출구 대기
   const a = sim.players[0].atExit, b = sim.players[1].atExit;
@@ -674,6 +687,7 @@ function drawHud(sim, w, r, split) {
     ctx.globalAlpha = 1;
   }
 
+  if (touch) return;
   if (S.kind === 'solo') {
     ctx.textAlign = 'left'; ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(8, r.h - 34, 330, 26);
@@ -727,6 +741,11 @@ function frame(now) {
 // ---------- 시작 ----------
 if (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window) document.body.classList.add('touch');
 $('btnChatTouch').onclick = () => chat.open();
+$('btnMenuTouch').onclick = () => {
+  if (S.mode !== 'play') return;
+  if (S.over === 'pause') closeOver();
+  else if (!S.over) { S.paused = S.kind !== 'online'; openOver('일시정지', S.kind === 'online' ? '온라인에서는 게임이 멈추지 않습니다' : '', 'pause'); }
+};
 initInput();
 fitCanvas();
 setMode('title');
