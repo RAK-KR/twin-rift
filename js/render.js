@@ -1,5 +1,6 @@
 // 그리기: 각 세계를 따로 그린다. 상대 세계에서 넘어온 칸은 상대 색으로 물든다.
 import { T, CHARS, PHYS, PROJ } from './config.js';
+import { VIEW_ROWS } from './levels.js';
 
 const FONT = "'Do Hyeon', 'Noto Sans KR', sans-serif";
 
@@ -445,8 +446,9 @@ function roundRect(ctx, x, y, w, h, r) {
 // region: 캔버스 위 영역(논리 px), w: 그릴 세계(=그 세계 캐릭터), opts: { labels, pings, me }
 export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
   const st = sim.stage;
-  const scale = region.h / (st.H * T);
-  const vw = region.w / scale, vh = st.H * T;
+  const scale = region.h / (VIEW_ROWS * T);          // 화면에는 세로 16칸
+  const vw = region.w / scale, vh = VIEW_ROWS * T;
+  const mapH = st.H * T;
   const me = sim.players[w], other = sim.players[1 - w];
 
   // 카메라
@@ -454,6 +456,13 @@ export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
   if (cam.x === undefined || opts.snap) cam.x = target;
   cam.x += (target - cam.x) * Math.min(1, opts.dt ? opts.dt * 6 : 1);
   const camX = Math.round(cam.x * scale) / scale;
+  // 세로: 높은 맵이면 캐릭터를 따라 위아래로
+  let targetY = Math.max(0, Math.min(mapH - vh, me.y - vh * 0.55));
+  // 맵 꼭대기 근처까지 올라가면 화면 위로 잘리지 않게 조금 더 올려 준다
+  if (me.y - vh * 0.3 < targetY) targetY = Math.max(-3 * T, me.y - vh * 0.3);
+  if (cam.y === undefined || opts.snap) cam.y = targetY;
+  cam.y += (targetY - cam.y) * Math.min(1, opts.dt ? opts.dt * 5 : 1);
+  const camY = Math.round(cam.y * scale) / scale;
   const shake = cam.shake || 0;
 
   ctx.save();
@@ -463,6 +472,14 @@ export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
   ctx.translate(-camX + (shake ? (Math.random() - 0.5) * shake : 0), shake ? (Math.random() - 0.5) * shake : 0);
 
   drawBackground(ctx, w, camX, vw, vh, t);
+  // 맵 오른쪽 바깥은 벽으로 막혀 있으니 어둡게 채운다 (좁은 맵을 넓은 화면으로 볼 때)
+  if (camX + vw > st.W * T) {
+    ctx.fillStyle = THEME[w].wallDark;
+    ctx.fillRect(st.W * T, 0, camX + vw - st.W * T + 4, vh);
+    ctx.fillStyle = THEME[w].wallTop;
+    ctx.fillRect(st.W * T, 0, 3, vh);
+  }
+  ctx.translate(0, -camY);
 
   // 상대 간섭 원 안: 상대 세계의 하늘을 깔아 대비를 확보
   const Rr = st.R * T;
@@ -477,7 +494,8 @@ export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
 
   // 지형
   const tx0 = Math.max(0, Math.floor(camX / T) - 1), tx1 = Math.min(st.W - 1, Math.ceil((camX + vw) / T) + 1);
-  for (let ty = 0; ty < st.H; ty++) {
+  const ty0 = Math.max(0, Math.floor(camY / T) - 1), ty1 = Math.min(st.H - 1, Math.ceil((camY + vh) / T) + 1);
+  for (let ty = ty0; ty <= ty1; ty++) {
     for (let tx = tx0; tx <= tx1; tx++) {
       const ch = sim.tileFor(w, tx, ty);
       if (ch === '.') continue;
@@ -550,11 +568,11 @@ export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
     const wx = sim.wallX;
     ctx.fillStyle = '#0a0410';
     ctx.beginPath(); ctx.moveTo(camX - 50, 0); ctx.lineTo(wx, 0);
-    for (let y = 0; y <= vh; y += 24) ctx.lineTo(wx + Math.sin(y * 0.3 + t * 9) * 10 + hash(y, Math.floor(t * 12)) * 8, y);
-    ctx.lineTo(camX - 50, vh); ctx.fill();
+    for (let y = 0; y <= mapH; y += 24) ctx.lineTo(wx + Math.sin(y * 0.3 + t * 9) * 10 + hash(y, Math.floor(t * 12)) * 8, y);
+    ctx.lineTo(camX - 50, mapH); ctx.fill();
     ctx.strokeStyle = '#d14dff'; ctx.lineWidth = 3;
     ctx.beginPath();
-    for (let y = 0; y <= vh; y += 24) {
+    for (let y = 0; y <= mapH; y += 24) {
       const xx = wx + Math.sin(y * 0.3 + t * 9) * 10 + hash(y, Math.floor(t * 12)) * 8;
       y ? ctx.lineTo(xx, y) : ctx.moveTo(xx, y);
     }
@@ -595,15 +613,18 @@ export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
   ctx.restore();
 
   // 화면 밖 상대 위치 화살표
-  const ox = (other.x - camX) * scale, oy = other.y * scale;
-  if (!other.dead && (ox < 0 || ox > region.w)) {
-    const left = ox < 0;
-    const ax = region.x + (left ? 18 : region.w - 18), ay = region.y + Math.max(30, Math.min(region.h - 30, oy));
+  const ox = (other.x - camX) * scale, oy = (other.y - camY) * scale;
+  if (!other.dead && (ox < 0 || ox > region.w || oy < 0 || oy > region.h)) {
+    const cx = region.w / 2, cy = region.h / 2;
+    const dx = ox - cx, dy = oy - cy;
+    const k = Math.min((region.w / 2 - 20) / Math.max(1, Math.abs(dx)), (region.h / 2 - 24) / Math.max(1, Math.abs(dy)));
+    const ax = region.x + cx + dx * k, ay = region.y + cy + dy * k;
+    const ang = Math.atan2(dy, dx);
+    ctx.save();
+    ctx.translate(ax, ay); ctx.rotate(ang);
     ctx.fillStyle = CHARS[1 - w].color;
-    ctx.beginPath();
-    if (left) { ctx.moveTo(ax - 10, ay); ctx.lineTo(ax + 6, ay - 10); ctx.lineTo(ax + 6, ay + 10); }
-    else { ctx.moveTo(ax + 10, ay); ctx.lineTo(ax - 6, ay - 10); ctx.lineTo(ax - 6, ay + 10); }
-    ctx.fill();
+    ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(-6, -10); ctx.lineTo(-6, 10); ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
 }
 

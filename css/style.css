@@ -79,7 +79,7 @@ button.small { font-size: 15px; padding: 6px 12px; flex: 0; }
 .pslot em { display: block; font-style: normal; color: #6b7286; font-size: 12px; margin-bottom: 4px; }
 .pslot b { font-size: 18px; }
 .pslot.on { border-color: #8fa4ff; }
-.stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 14px; }
+.stages { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 14px; }
 .stages button { font-size: 15px; padding: 8px 4px; }
 .stages button.sel { background: #e9ecf3; color: #0b0d14; }
 .stages .best { display: block; font-family: 'Noto Sans KR', sans-serif; font-size: 11px; opacity: 0.7; }
