@@ -414,8 +414,10 @@ function onNetClose(reason) {
   if (S.kind !== 'online') return;
   if (S.isHost) {
     S.peerName = '';
-    chat.sys('상대의 연결이 끊어졌습니다');
-    toast('상대의 연결이 끊어졌습니다');
+    const msg = reason === 'replaced' ? '상대가 다시 접속했습니다' : '상대의 연결이 끊어졌습니다';
+    chat.sys(msg);
+    toast(msg);
+    cancelCountdown();
     S.sim = null;
     enterLobby();
   } else {
@@ -890,4 +892,5 @@ initInput();
 fitCanvas();
 setMode('title');
 document.addEventListener('pointerdown', unlockAudio, { once: true });
+window.addEventListener('pagehide', () => { if (S.net) S.net.bye(); });
 requestAnimationFrame(frame);

@@ -32,6 +32,7 @@ export class Net {
     this.rtt = 0;
     this.pingTimer = null;
     this.closed = false;
+    this.lastRecv = 0;
   }
 
   host() {
@@ -44,10 +45,12 @@ export class Net {
         let opened = false;
         peer.on('open', () => { opened = true; this.peer = peer; this.code = code; resolve(code); });
         peer.on('connection', c => {
-          if (this.conn && this.conn.open) {   // 이미 2명이면 거절
+          // 이미 상대가 있어도, 그 연결이 몇 초째 조용하면 끊긴 것으로 보고 새 연결을 받는다
+          if (this.conn && this.conn.open && performance.now() - this.lastRecv < 2500) {
             c.on('open', () => { c.send({ t: 'full' }); setTimeout(() => c.close(), 300); });
             return;
           }
+          if (this.conn) this.drop('replaced');
           this.attach(c);
         });
         peer.on('error', err => {
@@ -83,24 +86,52 @@ export class Net {
 
   attach(c) {
     this.conn = c;
+    this.lastRecv = performance.now();
     const ready = () => {
+      this.lastRecv = performance.now();
       this.h.open && this.h.open();
       clearInterval(this.pingTimer);
-      this.pingTimer = setInterval(() => this.send({ t: 'png', ts: performance.now() }), 2000);
+      // 1초마다 생존 신호. 창을 내려 둔 탭은 브라우저가 타이머를 늦추므로,
+      // 끊김 판정은 아주 길게(75초) 잡고, 빠른 처리는 bye 신호와 재접속 교체로 한다
+      this.pingTimer = setInterval(() => {
+        if (this.conn !== c) return;
+        this.send({ t: 'png', ts: performance.now() });
+        if (performance.now() - this.lastRecv > 75000) this.drop('timeout');
+      }, 1000);
     };
     c.on('data', d => {
+      if (this.conn !== c) return;
+      this.lastRecv = performance.now();
       if (!d || typeof d !== 'object') return;
       if (d.t === 'png') { this.send({ t: 'pnr', ts: d.ts }); return; }
       if (d.t === 'pnr') { this.rtt = performance.now() - d.ts; return; }
+      if (d.t === 'bye') { this.drop('peer'); return; }
       this.h.msg && this.h.msg(d);
     });
     c.on('close', () => {
+      if (this.conn !== c) return;      // 이미 정리한 연결
       clearInterval(this.pingTimer);
-      if (this.conn === c) this.conn = null;
+      this.conn = null;
       if (!this.closed) this.h.close && this.h.close('peer');
     });
     c.on('error', () => {});
     if (c.open) ready(); else c.on('open', ready);
+  }
+
+  // 현재 연결을 정리하고 끊김을 알린다
+  drop(reason) {
+    const c = this.conn;
+    if (!c) return;
+    this.conn = null;
+    clearInterval(this.pingTimer);
+    try { c.close(); } catch (e) {}
+    if (!this.closed) this.h.close && this.h.close(reason);
+  }
+
+  // 창을 닫거나 새로고침할 때 상대에게 바로 알린다
+  bye() {
+    this.send({ t: 'bye' });
+    this.destroy();
   }
 
   get connected() { return !!(this.conn && this.conn.open); }
