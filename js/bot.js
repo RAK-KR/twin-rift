@@ -85,6 +85,7 @@ export class BotDriver {
     this.t = 0;
     this.jumpHold = [0, 0];
     this.projSent = [false, false];
+    this.want = [false, false];
     this.error = null;
     this.log = [];
   }
@@ -148,7 +149,10 @@ export class BotDriver {
     const inp = { left: false, right: false, jump: false, proj: false };
     if (p.dead) return inp;
 
-    if (act.proj !== undefined && p.proj !== act.proj && !this.projSent[idx]) { inp.proj = true; this.projSent[idx] = true; }
+    if (act.proj !== undefined) this.want[idx] = act.proj;
+    const want = this.want[idx];
+    const canToggle = want ? p.projCd <= 0 : true;
+    if (p.proj !== want && canToggle && !this.projSent[idx]) { inp.proj = true; this.projSent[idx] = true; }
     else this.projSent[idx] = false;
 
     const q = (tx, ty) => sim.tileFor(idx, tx, ty);

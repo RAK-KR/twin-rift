@@ -1,5 +1,5 @@
 // 그리기: 각 세계를 따로 그린다. 상대 세계에서 넘어온 칸은 상대 색으로 물든다.
-import { T, CHARS, PHYS } from './config.js';
+import { T, CHARS, PHYS, PROJ } from './config.js';
 
 const FONT = "'Do Hyeon', 'Noto Sans KR', sans-serif";
 
@@ -9,14 +9,14 @@ export const THEME = [
     wall: '#24527d', wallTop: '#6fb7ee', wallLine: '#1b4166', wallDark: '#173a5c',
     spike: '#ff5a6e', spikeTip: '#ffd3da',
     water: 'rgba(56,150,255,0.42)', waterTop: '#9ad8ff',
-    wind: 'rgba(255,190,110,0.26)', windLine: 'rgba(255,225,170,0.85)',
+    wind: 'rgba(255,200,120,0.34)', windLine: 'rgba(255,240,205,0.95)', windEdge: 'rgba(255,225,170,0.9)',
   },
   { // DUNE: 모래에 묻힌 도시
     sky: '#3a2418', band: '#462c1d', far: '#573823', near: '#6a452b', window: 'rgba(255,200,120,0.16)',
     wall: '#b98a52', wallTop: '#f5d49b', wallLine: '#977041', wallDark: '#8a6539',
     spike: '#ff5a4a', spikeTip: '#ffe0c8',
     water: 'rgba(56,150,255,0.42)', waterTop: '#9ad8ff',
-    wind: 'rgba(255,205,130,0.30)', windLine: 'rgba(255,240,200,0.9)',
+    wind: 'rgba(255,215,150,0.30)', windLine: 'rgba(255,248,225,0.95)', windEdge: 'rgba(255,240,205,0.85)',
   },
 ];
 
@@ -104,7 +104,8 @@ function drawBackground(ctx, w, camX, vw, vh, t) {
 }
 
 // ---------- 칸 ----------
-function drawTile(ctx, ch, src, tx, ty, up, t) {
+function drawTile(ctx, ch, src, tx, ty, nb, t) {
+  const up = nb.up;
   const th = THEME[src];
   const x = tx * T, y = ty * T;
   if (ch === '#') {
@@ -137,13 +138,105 @@ function drawTile(ctx, ch, src, tx, ty, up, t) {
     }
   } else if (ch === '|') {
     ctx.fillStyle = th.wind; ctx.fillRect(x, y, T, T);
-    ctx.strokeStyle = th.windLine; ctx.lineWidth = 2;
-    for (let k = 0; k < 3; k++) {
-      const lx = x + 6 + k * 10 + Math.sin(t * 4 + ty + k) * 2;
+    // 기둥 양옆 테두리
+    ctx.fillStyle = th.windEdge;
+    if (nb.left !== '|') ctx.fillRect(x, y, 2, T);
+    if (nb.right !== '|') ctx.fillRect(x + T - 2, y, 2, T);
+    // 위로 올라가는 화살표
+    const off = (t * 70 + hash(tx, 0) * T) % T;
+    ctx.strokeStyle = th.windLine; ctx.lineWidth = 2.2;
+    const cy = y + T - off;
+    ctx.beginPath(); ctx.moveTo(x + 9, cy + 5); ctx.lineTo(x + 16, cy - 2); ctx.lineTo(x + 23, cy + 5); ctx.stroke();
+    // 가는 줄
+    ctx.lineWidth = 1.5;
+    for (let k = 0; k < 2; k++) {
+      const lx = x + 5 + k * 22 + Math.sin(t * 4 + ty + k) * 1.5;
       const ly = y + T - ((t * 160 + hash(tx * 3 + k, ty) * T) % (T + 14));
       ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly + 10); ctx.stroke();
     }
+    if (nb.up !== '|') {   // 기둥 꼭대기 표시
+      ctx.fillStyle = th.windEdge; ctx.fillRect(x, y, T, 3);
+    }
   }
+}
+
+// ---------- 감정 표현 ----------
+export const EMOTES = [
+  { k: 'thumb', name: '따봉' }, { k: 'heart', name: '하트' }, { k: 'lol', name: 'ㅋㅋㅋ' },
+  { k: 'what', name: '물음표' }, { k: 'sorry', name: '미안' }, { k: 'dance', name: '춤' },
+];
+export const EMO_DUR = { dance: 3.2, default: 2.6 };
+
+// (x, y)를 중심으로 아이콘 하나를 그린다. 크기는 대략 24px
+export function drawEmoteIcon(ctx, k, x, y, t = 0) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.lineJoin = 'round';
+  if (k === 'thumb') {
+    ctx.fillStyle = '#ffd36b'; ctx.strokeStyle = '#7a4a12'; ctx.lineWidth = 1.6;
+    // 엄지
+    ctx.beginPath();
+    ctx.moveTo(-3, -1); ctx.lineTo(-3, -9); ctx.quadraticCurveTo(-3, -12, 0, -12); ctx.quadraticCurveTo(3, -12, 3, -9); ctx.lineTo(3, -1);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // 주먹
+    ctx.beginPath();
+    ctx.moveTo(-6, -2); ctx.lineTo(7, -2); ctx.quadraticCurveTo(10, -2, 10, 1); ctx.lineTo(10, 8);
+    ctx.quadraticCurveTo(10, 11, 7, 11); ctx.lineTo(-6, 11); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    for (const yy of [2, 5, 8]) { ctx.moveTo(2, yy); ctx.lineTo(10, yy); }
+    ctx.stroke();
+    // 소매
+    ctx.fillStyle = '#4db8ff'; ctx.fillRect(-11, -3, 5, 15); ctx.strokeRect(-11, -3, 5, 15);
+  } else if (k === 'heart') {
+    const b = 1 + Math.sin(t * 10) * 0.06;
+    ctx.scale(b, b);
+    ctx.fillStyle = '#ff4d6d'; ctx.strokeStyle = '#8a1a33'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(0, 10);
+    ctx.bezierCurveTo(-13, 1, -10, -11, 0, -4);
+    ctx.bezierCurveTo(10, -11, 13, 1, 0, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath(); ctx.ellipse(-5, -3, 2.2, 1.4, -0.6, 0, Math.PI * 2); ctx.fill();
+  } else if (k === 'lol' || k === 'what' || k === 'sorry') {
+    const txt = k === 'lol' ? 'ㅋㅋㅋ' : k === 'what' ? '?' : '미안';
+    ctx.font = `${k === 'what' ? 24 : 15}px 'Do Hyeon', 'Noto Sans KR', sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = k === 'lol' ? '#e0457b' : k === 'what' ? '#3a6df0' : '#5a6478';
+    const wob = k === 'lol' ? Math.sin(t * 18) * 1.2 : 0;
+    ctx.fillText(txt, 0, 1 + wob);
+    if (k === 'sorry') {   // 땀방울
+      ctx.fillStyle = '#7cc8ff';
+      ctx.beginPath(); ctx.moveTo(13, -9); ctx.quadraticCurveTo(17, -3, 13, -1); ctx.quadraticCurveTo(9, -3, 13, -9); ctx.fill();
+    }
+  } else if (k === 'dance') {
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#1a1d28'; ctx.lineWidth = 1.4;
+    for (const [nx, ny] of [[-5, 4], [6, 1]]) {
+      ctx.beginPath(); ctx.ellipse(nx, ny, 3.4, 2.6, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(nx + 3, ny); ctx.lineTo(nx + 3, ny - 11); ctx.stroke();
+    }
+    ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(-2, -7); ctx.lineTo(9, -10); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// 말풍선 + 아이콘
+function drawEmoteBubble(ctx, k, x, y, age, dur, t) {
+  const pop = Math.min(1, age / 0.15);
+  const fade = Math.min(1, (dur - age) / 0.35);
+  const sc = 0.6 + 0.4 * pop + (pop < 1 ? 0 : Math.max(0, 0.15 - (age - 0.15)) * 0.8);
+  ctx.save();
+  ctx.globalAlpha *= Math.max(0, fade);
+  ctx.translate(x, y - Math.min(6, age * 20));
+  ctx.scale(sc, sc);
+  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#1a1d28'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-18, -15); ctx.lineTo(18, -15); ctx.quadraticCurveTo(22, -15, 22, -11); ctx.lineTo(22, 9);
+  ctx.quadraticCurveTo(22, 13, 18, 13); ctx.lineTo(5, 13); ctx.lineTo(0, 19); ctx.lineTo(-5, 13); ctx.lineTo(-18, 13);
+  ctx.quadraticCurveTo(-22, 13, -22, 9); ctx.lineTo(-22, -11); ctx.quadraticCurveTo(-22, -15, -18, -15);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  drawEmoteIcon(ctx, k, 0, -1, t);
+  ctx.restore();
 }
 
 // ---------- 캐릭터 ----------
@@ -157,8 +250,19 @@ export function drawChar(ctx, p, chIdx, t, { alpha = 1, label = '', echo = false
   const moving = p.grounded && Math.abs(p.vx) > 20;
   const ph = t * 15 + chIdx;
   const bob = moving ? Math.abs(Math.sin(ph)) * 1.6 : Math.sin(t * 2.4 + chIdx) * 0.5;
-  const lean = Math.max(-0.12, Math.min(0.12, p.vx / 210 * 0.09));
-  const f = p.face || 1;
+  let lean = Math.max(-0.12, Math.min(0.12, p.vx / 210 * 0.09));
+  let f = p.face || 1;
+  const emo = p.emo, emoAge = emo ? t - emo.t0 : 99;
+  const emoDur = emo ? (EMO_DUR[emo.k] || EMO_DUR.default) : 0;
+  const dancing = emo && emo.k === 'dance' && emoAge < emoDur && p.grounded && Math.abs(p.vx) < 30;
+  let hop = 0;
+  if (dancing) {
+    const b = emoAge * 9;
+    hop = Math.abs(Math.sin(b)) * 7;
+    lean = Math.sin(b) * 0.32;
+    f = Math.sin(emoAge * 4.5) >= 0 ? 1 : -1;
+    sx *= 1 + Math.cos(b * 2) * 0.06; sy *= 1 - Math.cos(b * 2) * 0.06;
+  }
   const air = !p.grounded;
 
   ctx.save();
@@ -179,7 +283,7 @@ export function drawChar(ctx, p, chIdx, t, { alpha = 1, label = '', echo = false
   ctx.fillStyle = footCol;
   for (const [fx, fy] of feet) { ctx.beginPath(); ctx.ellipse(fx, fy, 4.6, 2.8, 0, 0, Math.PI * 2); ctx.fill(); }
 
-  ctx.translate(0, -3 - bob);
+  ctx.translate(0, -3 - bob - hop);
   ctx.rotate(lean);
   ctx.scale(sx, sy);
 
@@ -298,6 +402,23 @@ export function drawChar(ctx, p, chIdx, t, { alpha = 1, label = '', echo = false
   }
   ctx.restore();
 
+  // 감정 표현 말풍선 / 춤 음표
+  if (emo && emoAge < emoDur) {
+    ctx.save();
+    ctx.globalAlpha = 1;   // 상대 잔상이어도 감정 표현은 또렷하게
+    const by = footY - (label ? 66 : 50) * scale - hop;
+    if (emo.k === 'dance') {
+      for (let n = 0; n < 2; n++) {
+        const a = (emoAge * 1.2 + n * 0.5) % 1;
+        ctx.globalAlpha = 1 - a;
+        drawEmoteIcon(ctx, 'dance', p.x + (n ? 14 : -14) * scale + Math.sin(emoAge * 6 + n) * 3, footY - (34 + a * 26) * scale, t);
+      }
+    } else {
+      drawEmoteBubble(ctx, emo.k, p.x, by, emoAge, emoDur, t);
+    }
+    ctx.restore();
+  }
+
   if (label) {
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -343,14 +464,28 @@ export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
 
   drawBackground(ctx, w, camX, vw, vh, t);
 
+  // 상대 간섭 원 안: 상대 세계의 하늘을 깔아 대비를 확보
+  const Rr = st.R * T;
+  if (other.proj && !other.dead) {
+    const oth = THEME[1 - w];
+    ctx.save();
+    ctx.beginPath(); ctx.arc(other.x, other.y, Rr, 0, Math.PI * 2); ctx.clip();
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = oth.sky; ctx.fillRect(other.x - Rr, other.y - Rr, Rr * 2, Rr * 2);
+    ctx.restore();
+  }
+
   // 지형
   const tx0 = Math.max(0, Math.floor(camX / T) - 1), tx1 = Math.min(st.W - 1, Math.ceil((camX + vw) / T) + 1);
   for (let ty = 0; ty < st.H; ty++) {
     for (let tx = tx0; tx <= tx1; tx++) {
       const ch = sim.tileFor(w, tx, ty);
       if (ch === '.') continue;
-      const up = ty > 0 ? sim.tileFor(w, tx, ty - 1) : '.';
-      drawTile(ctx, ch, sim.sourceOf(w, tx, ty), tx, ty, up, t);
+      const nb = {
+        up: ty > 0 ? sim.tileFor(w, tx, ty - 1) : '.',
+        left: sim.tileFor(w, tx - 1, ty), right: sim.tileFor(w, tx + 1, ty),
+      };
+      drawTile(ctx, ch, sim.sourceOf(w, tx, ty), tx, ty, nb, t);
     }
   }
 
@@ -359,6 +494,7 @@ export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
   if (other.proj && !other.dead) {
     const oc = CHARS[1 - w].color;
     ctx.save();
+    if (other.projT < 1.5) ctx.globalAlpha = 0.45 + 0.55 * (Math.sin(t * 22) > 0 ? 1 : 0);   // 곧 꺼짐
     ctx.beginPath(); ctx.arc(other.x, other.y, R, 0, Math.PI * 2);
     ctx.fillStyle = oc + '22'; ctx.fill();
     ctx.lineWidth = 3; ctx.strokeStyle = oc;
@@ -370,8 +506,15 @@ export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
     const mc = CHARS[w].color;
     ctx.save();
     ctx.beginPath(); ctx.arc(me.x, me.y, R, 0, Math.PI * 2);
-    ctx.lineWidth = 1.5; ctx.strokeStyle = mc + 'aa';
+    ctx.lineWidth = 1.5; ctx.strokeStyle = mc + '88';
     ctx.setLineDash([3, 6]); ctx.lineDashOffset = t * 30; ctx.stroke();
+    // 남은 시간 (머리 위 작은 원호)
+    ctx.setLineDash([]);
+    const frac = Math.max(0, Math.min(1, me.projT / PROJ.dur));
+    ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.arc(me.x, me.y - 30, 7, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = frac < 0.25 ? '#ff6a6a' : mc;
+    ctx.beginPath(); ctx.arc(me.x, me.y - 30, 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.stroke();
     ctx.restore();
   }
 

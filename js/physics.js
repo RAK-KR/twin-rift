@@ -15,7 +15,7 @@ export function makeBody(world, tx, ty) {
     grounded: false, coyote: 0, buffer: 0, jumping: false,
     prevJump: false, prevProj: false,
     wasFluid: false, wasWater: false,
-    proj: false, dead: false, deadT: 0,
+    proj: false, projT: 0, projCd: 0, dead: false, deadT: 0,
     atExit: false, landT: 0, jumpT: 0, fallV: 0,
   };
 }

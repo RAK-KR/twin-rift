@@ -29,5 +29,8 @@ export const CHARS = [
   { id: 1, key: 'dune', name: 'DUNE', world: '모래에 묻힌 도시', color: '#ffa44a', dark: '#7a4413', light: '#ffe2bd' },
 ];
 
+// 간섭: 한 번 누르면 dur초 동안 켜지고, 꺼지면 cd초 동안 다시 켤 수 없다
+export const PROJ = { dur: 6, cd: 3 };
+
 export const NET_PREFIX = 'twinrift-v1-';
 export const SEND_HZ = 30;

@@ -32,7 +32,7 @@
         <button id="btnBots">봇 시연</button>
       </div>
       <p id="titleMsg" class="msgline"></p>
-      <p class="hint">이동 ← → / A D · 점프 Space / W · 간섭 E · 핑 Q · 채팅 Enter</p>
+      <p class="hint">이동 ← → / A D · 점프 Space / W · 간섭 E · 핑 Q · 감정 표현 G · 채팅 Enter · 내 캐릭터 리셋 K</p>
     </div>
   </section>
 
@@ -84,6 +84,9 @@
     <input id="chatInput" maxlength="120" placeholder="메시지 입력 후 Enter" autocomplete="off" spellcheck="false">
   </div>
 
+  <!-- 감정 표현 -->
+  <div id="emoBar" class="hidden"></div>
+
   <!-- 터치 조작 -->
   <div id="touch" class="hidden">
     <div class="tl">
@@ -91,6 +94,7 @@
       <button data-touch="right">▶</button>
     </div>
     <div class="tr">
+      <button data-touch="kill" class="sm">리셋</button>
       <button data-touch="ping" class="sm">핑</button>
       <button data-touch="proj">간섭</button>
       <button data-touch="jump">점프</button>
@@ -98,6 +102,7 @@
     <button id="btnMenuTouch" class="menubtn">메뉴</button>
     <button id="btnChatTouch" class="chatbtn">채팅</button>
     <button id="btnSwapTouch" data-touch="swap" class="swapbtn">전환</button>
+    <button id="btnEmoTouch" class="emobtn">감정</button>
   </div>
 
   <div id="toast"></div>

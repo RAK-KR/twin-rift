@@ -58,6 +58,8 @@ export const sfx = {
   fail() { tone(98, 0.8, { type: 'sawtooth', vol: 0.15, slide: 0.5 }); noise(0.8, { freq: 300, vol: 0.3, slide: 0.4 }); },
   chat() { tone(440, 0.07, { type: 'sine', vol: 0.07 }); tone(587, 0.09, { type: 'sine', vol: 0.06, delay: 0.05 }); },
   ping() { tone(660, 0.35, { type: 'sine', vol: 0.12 }); tone(880, 0.4, { type: 'sine', vol: 0.06, delay: 0.06 }); },
+  deny() { tone(150, 0.12, { type: 'square', vol: 0.06 }); tone(120, 0.14, { type: 'square', vol: 0.06, delay: 0.08 }); },
+  emote() { tone(520, 0.08, { type: 'triangle', vol: 0.1, slide: 1.4 }); tone(780, 0.12, { type: 'sine', vol: 0.06, delay: 0.05 }); },
   ui() { tone(300, 0.05, { type: 'triangle', vol: 0.08 }); },
   rumble() { noise(0.5, { freq: 160, vol: 0.08 }); },
 };

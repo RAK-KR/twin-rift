@@ -1,12 +1,12 @@
 // 화면 흐름: 타이틀 → (방 만들기/참가) 대기실 → 게임 시작 → 캐릭터 선택 → 스테이지
-import { VIEW_W, VIEW_H, CHARS, SEND_HZ, T } from './config.js';
+import { VIEW_W, VIEW_H, CHARS, SEND_HZ, T, PROJ } from './config.js';
 import { STAGES } from './levels.js';
 import { Sim } from './sim.js';
 import { BotDriver, PLANS } from './bot.js';
 import { Net } from './net.js';
 import { Chat } from './chat.js';
 import { initInput, readMove, took, clearPressed, releaseAll } from './input.js';
-import { drawWorld, drawPreview, particles, burst, stepParticles } from './render.js';
+import { drawWorld, drawPreview, particles, burst, stepParticles, EMOTES, drawEmoteIcon } from './render.js';
 import { unlockAudio, sfx, setMuted, isMuted } from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -63,9 +63,11 @@ function setMode(m) {
   $('touch').classList.toggle('hidden', !(m === 'play' && document.body.classList.contains('touch')));
   $('btnChatTouch').classList.toggle('hidden', !online);
   $('btnSwapTouch').classList.toggle('hidden', S.kind !== 'solo');
+  $('btnEmoTouch').classList.toggle('hidden', S.kind === 'bots');
   if (m === 'play') { show(null); document.activeElement && document.activeElement.blur && document.activeElement.blur(); }
   else if (m !== 'over') show(m);
   releaseAll(); clearPressed();
+  toggleEmoBar(false);
 }
 
 let toastTimer = null;
@@ -374,6 +376,12 @@ function onNetMsg(m) {
     case 'ping':
       addPing(m.x, m.y, m.c, false);
       break;
+    case 'emo':
+      if (S.sim && S.mode === 'play' && EMOTES[m.i | 0]) {
+        S.sim.players[1 - S.myCh].emo = { k: EMOTES[m.i | 0].k, t0: S.t };
+        sfx.emote();
+      }
+      break;
     case 'clear':
       if (!S.isHost && S.sim && !S.sim.cleared) { S.sim.cleared = true; onClear(m.time); }
       break;
@@ -484,6 +492,38 @@ function backToMenu() {
   } else leaveToTitle();
 }
 
+// ---------- 감정 표현 (G) ----------
+const emoBar = $('emoBar');
+let emoTimer = null, lastEmo = 0;
+EMOTES.forEach((e, i) => {
+  const b = document.createElement('button');
+  b.innerHTML = `<canvas width="56" height="44"></canvas><span>${i + 1} ${e.name}</span>`;
+  b.onclick = () => { doEmote(i); };
+  emoBar.appendChild(b);
+  const c = b.querySelector('canvas').getContext('2d');
+  c.scale(1.6, 1.6);
+  const draw = () => { c.clearRect(0, 0, 40, 30); drawEmoteIcon(c, e.k, 17.5, 15, 0); };
+  draw();
+  document.fonts && document.fonts.ready.then(draw);
+});
+function myIdx() { return S.kind === 'online' ? S.myCh : S.active; }
+function toggleEmoBar(open) {
+  const on = open === undefined ? emoBar.classList.contains('hidden') : open;
+  emoBar.classList.toggle('hidden', !on);
+  clearTimeout(emoTimer);
+  if (on) emoTimer = setTimeout(() => emoBar.classList.add('hidden'), 5000);
+}
+function doEmote(i) {
+  toggleEmoBar(false);
+  if (!S.sim || S.mode !== 'play' || S.kind === 'bots') return;
+  if (S.t - lastEmo < 0.6) return;
+  lastEmo = S.t;
+  const p = S.sim.players[myIdx()];
+  p.emo = { k: EMOTES[i].k, t0: S.t };
+  sfx.emote();
+  if (S.kind === 'online' && S.net) S.net.send({ t: 'emo', i });
+}
+
 function addPing(x, y, c, send) {
   S.pings.push({ x, y, c, t0: S.t });
   if (S.pings.length > 6) S.pings.shift();
@@ -527,6 +567,7 @@ function handleEvents() {
       case 'respawn': burst(p.x, p.y, col, 10, { speed: 80, life: 0.4, size: 3, grav: 0 }); break;
       case 'projOn': sfx.projOn(); break;
       case 'projOff': sfx.projOff(); break;
+      case 'projDeny': if (e.i === myIdx()) sfx.deny(); break;
       case 'flag': sfx.flag(); burst(p.x, p.y - 20, col, 12, { speed: 120, up: 60, life: 0.6, size: 3 }); break;
       case 'exitIn': sfx.exitIn(); break;
       case 'clear':
@@ -556,7 +597,11 @@ function playUpdate(dt) {
       const p = sim.players[w];
       if (!p.dead) addPing(p.x, p.y - 26, w, S.kind === 'online');
     }
-    if (S.kind === 'solo' && (took('Tab') || took('Digit1') || took('Digit2'))) {
+    if (took('KeyG') && !S.over && S.kind !== 'bots') toggleEmoBar();
+    if (!emoBar.classList.contains('hidden')) {
+      for (let i = 0; i < EMOTES.length; i++) if (took('Digit' + (i + 1)) || took('Numpad' + (i + 1))) doEmote(i);
+    }
+    if (S.kind === 'solo' && took('Tab')) {
       S.active = 1 - S.active; releaseAll(); toast(`${CHARS[S.active].name} 조작 중`, 900);
     }
   }
@@ -644,7 +689,7 @@ function drawHud(sim, w, r, split) {
   // 간섭 상태 (터치 화면에서는 버튼과 겹치지 않게 위로)
   const touch = document.body.classList.contains('touch');
   const me = sim.players[w];
-  const label = me.proj ? '간섭 ON' : '간섭 OFF';
+  const label = me.proj ? `간섭 ${me.projT.toFixed(1)}초` : me.projCd > 0 ? `충전 ${me.projCd.toFixed(1)}초` : '간섭 준비';
   ctx.font = `18px ${FONT}`; ctx.textAlign = 'right';
   const bx = r.w - 12, by = touch ? (split ? r.h / 2 + 30 : 66) : r.h - 14;
   ctx.fillStyle = me.proj ? CHARS[w].color : 'rgba(0,0,0,0.6)';
@@ -652,7 +697,13 @@ function drawHud(sim, w, r, split) {
   const tw = ctx.measureText(text).width + 20;
   const lx = touch && !split ? 8 + tw : bx;   // 터치 온라인 화면: 왼쪽 위 스테이지 이름 아래
   ctx.fillRect(lx - tw, by - 22, tw, 30);
-  ctx.fillStyle = me.proj ? '#0b0d14' : '#cfd4e2';
+  // 게이지
+  const gFrac = me.proj ? me.projT / PROJ.dur : me.projCd > 0 ? 1 - me.projCd / PROJ.cd : 1;
+  ctx.fillStyle = me.proj ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.12)';
+  ctx.fillRect(lx - tw, by + 5, tw, 3);
+  ctx.fillStyle = me.proj ? '#0b0d14' : me.projCd > 0 ? '#8b92a6' : CHARS[w].color;
+  ctx.fillRect(lx - tw, by + 5, tw * Math.max(0, Math.min(1, gFrac)), 3);
+  ctx.fillStyle = me.proj ? '#0b0d14' : me.projCd > 0 ? '#8b92a6' : '#e9ecf3';
   ctx.fillText(text, lx - 10, by);
 
   // 출구 대기
@@ -690,9 +741,9 @@ function drawHud(sim, w, r, split) {
   if (touch) return;
   if (S.kind === 'solo') {
     ctx.textAlign = 'left'; ctx.font = `14px ${FONT}`;
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(8, r.h - 34, 330, 26);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(8, r.h - 34, 480, 26);
     ctx.fillStyle = '#cfd4e2';
-    ctx.fillText(`조작: ${CHARS[S.active].name}  ·  Tab 전환  ·  R 재시작  ·  Esc 메뉴`, 16, r.h - 16);
+    ctx.fillText(`조작: ${CHARS[S.active].name}  ·  Tab 전환  ·  G 감정 표현  ·  K 리셋  ·  R 재시작  ·  Esc 메뉴`, 16, r.h - 16);
   } else if (S.kind === 'bots') {
     ctx.textAlign = 'left'; ctx.font = `14px ${FONT}`;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(8, r.h - 34, 260, 26);
@@ -741,6 +792,7 @@ function frame(now) {
 // ---------- 시작 ----------
 if (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window) document.body.classList.add('touch');
 $('btnChatTouch').onclick = () => chat.open();
+$('btnEmoTouch').onclick = () => toggleEmoBar();
 $('btnMenuTouch').onclick = () => {
   if (S.mode !== 'play') return;
   if (S.over === 'pause') closeOver();

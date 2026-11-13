@@ -1,5 +1,5 @@
 // 스테이지 진행 상태. 온라인/혼자 테스트/봇 시연 모두 같은 코드를 쓴다.
-import { T, PHYS, FIXED_DT } from './config.js';
+import { T, PHYS, FIXED_DT, PROJ } from './config.js';
 import { STAGES } from './levels.js';
 import { makeBody, physStep, touchesSpike, isSolid } from './physics.js';
 
@@ -61,6 +61,12 @@ export class Sim {
     return o && this.inCircle(o, tx, ty) ? 1 - w : w;
   }
 
+  projEnd(i) {
+    const p = this.players[i];
+    p.proj = false; p.projT = 0; p.projCd = PROJ.cd;
+    this.emit('projOff', i);
+  }
+
   emit(type, i, extra) { this.events.push({ type, i, ...extra }); }
 
   kill(i, cause) {
@@ -94,14 +100,14 @@ export class Sim {
     const L = Math.min(0.15, Math.max(0, lead));
     p.x = st.x + (st.d ? 0 : st.vx * L); p.y = st.y;
     p._rt = L; p.vx = st.vx; p.vy = st.vy; p.face = st.f;
-    p.proj = !!st.p; p.dead = !!st.d; p.atExit = !!st.e; p.grounded = !!st.g;
+    p.proj = !!st.p; p.projT = st.pt || 0; p.projCd = st.pc || 0; p.dead = !!st.d; p.atExit = !!st.e; p.grounded = !!st.g;
     p.landT = st.l || 0; p.jumpT = st.j || 0;
     if (!wasDead && p.dead) { p.deathX = p.x; p.deathY = p.y; this.emit('death', i, { remote: true }); }
   }
   remoteState(i) {
     const p = this.players[i];
     const r = v => Math.round(v * 10) / 10;
-    return { x: r(p.x), y: r(p.y), vx: r(p.vx), vy: r(p.vy), f: p.face, p: p.proj ? 1 : 0, d: p.dead ? 1 : 0,
+    return { x: r(p.x), y: r(p.y), vx: r(p.vx), vy: r(p.vy), f: p.face, p: p.proj ? 1 : 0, pt: r(p.projT), pc: r(p.projCd), d: p.dead ? 1 : 0,
       e: p.atExit ? 1 : 0, g: p.grounded ? 1 : 0, l: r(p.landT), j: r(p.jumpT) };
   }
 
@@ -124,17 +130,29 @@ export class Sim {
         // 원격 캐릭터: 다음 상태가 올 때까지 가로 속도로 잠깐 예측
         const p = this.players[i];
         if (!p.dead && (p._rt || 0) < 0.15) { p.x += p.vx * dt; p._rt = (p._rt || 0) + dt; }
+        if (p.proj) p.projT = Math.max(0, p.projT - dt); else p.projCd = Math.max(0, p.projCd - dt);
         continue;
       }
       const p = this.players[i];
       const inp = (inputs && inputs[i]) || NONE;
+      // 내 캐릭터만 리셋(K): 마지막 체크포인트에서 다시 시작
+      const killPressed = !!inp.kill && !p.prevKill;
+      p.prevKill = !!inp.kill;
+      if (killPressed && !p.dead) { this.kill(i, 'self'); continue; }
       if (p.dead) {
         p.deadT -= dt;
         if (p.deadT <= 0) this.respawnPlayer(i);
         continue;
       }
-      if (inp.proj && !p.prevProj) { p.proj = !p.proj; this.emit(p.proj ? 'projOn' : 'projOff', i); }
+      // 간섭: 누르면 일정 시간 켜짐, 켜져 있을 때 다시 누르면 일찍 끔, 꺼진 뒤에는 재충전 시간
+      if (inp.proj && !p.prevProj) {
+        if (p.proj) this.projEnd(i);
+        else if (p.projCd <= 0) { p.proj = true; p.projT = PROJ.dur; this.emit('projOn', i); }
+        else this.emit('projDeny', i);
+      }
       p.prevProj = !!inp.proj;
+      if (p.proj) { p.projT -= dt; if (p.projT <= 0) this.projEnd(i); }
+      else p.projCd = Math.max(0, p.projCd - dt);
       const q = (tx, ty) => this.tileFor(i, tx, ty);
       const ev = physStep(p, inp, q, dt);
       for (const e of ev) this.emit(e, i);
