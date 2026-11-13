@@ -240,7 +240,7 @@ function drawEmoteBubble(ctx, k, x, y, age, dur, t) {
 }
 
 // ---------- 캐릭터 ----------
-export function drawChar(ctx, p, chIdx, t, { alpha = 1, label = '', echo = false, scale = 1 } = {}) {
+export function drawChar(ctx, p, chIdx, t, { alpha = 1, label = '', echo = false, scale = 1, outline = false } = {}) {
   if (p.dead) return;
   const c = CHARS[chIdx];
   const land = p.landT / 0.14, jump = p.jumpT / 0.18;
@@ -322,13 +322,13 @@ export function drawChar(ctx, p, chIdx, t, { alpha = 1, label = '', echo = false
   g.addColorStop(0.35, c.color);
   g.addColorStop(1, c.dark);
   body();
-  ctx.fillStyle = echo ? c.color : g;
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = c.dark;
+  if (!outline) { ctx.fillStyle = echo ? c.color : g; ctx.fill(); }
+  ctx.lineWidth = outline ? 2.4 : 2;
+  ctx.strokeStyle = outline ? c.color : c.dark;
   if (echo) ctx.setLineDash([3, 2.5]);
   ctx.stroke();
   ctx.setLineDash([]);
+  if (outline) { ctx.restore(); return; }   // 겹침 표시용: 테두리만
 
   if (!echo) {
     // 윤기
@@ -579,6 +579,10 @@ export function drawWorld(ctx, sim, w, region, cam, t, opts = {}) {
   // 캐릭터: 상대는 잔상, 나는 실체
   drawChar(ctx, other, 1 - w, t, { echo: true, alpha: 0.55, label: opts.labels && !opts.showMyLabel ? opts.labels[1 - w] : '' });
   drawChar(ctx, me, w, t, { label: opts.showMyLabel && opts.labels ? opts.labels[w] : '' });
+  // 같은 자리에 겹쳐 있으면 상대가 내 뒤에 가려지므로, 상대 잔상을 한 번 더 위에 그린다
+  if (!other.dead && !me.dead && Math.abs(other.x - me.x) < 30 && Math.abs(other.y - me.y) < 34) {
+    drawChar(ctx, other, 1 - w, t, { echo: true, alpha: 0.8, outline: true });
+  }
 
   // 입자
   for (const p of particles) {
